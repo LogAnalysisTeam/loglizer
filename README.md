@@ -1,5 +1,10 @@
 <p align="center"> <a href="https://github.com/logpai"> <img src="https://github.com/logpai/logpai.github.io/blob/master/img/logpai_logo.jpg" width="425"></a></p>
 
+# Changes by Log Analysis Team
+* Sep 21, 2020
+  * added support for BGL dataset (Marek Souček)
+  * uses `logging` instead of `print()`
+  * added `setup.py` to make the package installable
 
 # loglizer
 
