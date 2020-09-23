@@ -6,6 +6,9 @@ from torch import nn
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
 from collections import defaultdict
 
+import logging
+logger = logging.getLogger(__name__)
+
 class DeepLog(nn.Module):
     def __init__(self, num_labels, hidden_size=100, num_directions=2, topk=9, device="cpu"):
         super(DeepLog, self).__init__()
@@ -55,7 +58,7 @@ class DeepLog(nn.Module):
                 epoch_loss += loss.item()
                 batch_cnt += 1
             epoch_loss = epoch_loss / batch_cnt
-            print("Epoch {}/{}, training loss: {:.5f}".format(epoch+1, epoches, epoch_loss))
+            logger.info("Epoch {}/{}, training loss: {:.5f}".format(epoch+1, epoches, epoch_loss))
     
     def evaluate(self, test_loader):
         self.eval()  # set to evaluation mode
@@ -93,5 +96,5 @@ class DeepLog(nn.Module):
             "f1" : f1_score(y_true, y_pred),
             "recall" : recall_score(y_true, y_pred),
             "precision" : precision_score(y_true, y_pred)}
-            print([(k, round(v, 5))for k,v in metrics.items()])
+            logger.info([(k, round(v, 5)) for k,v in metrics.items()])
             return metrics

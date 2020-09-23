@@ -9,6 +9,8 @@ Authors:
 from sklearn.metrics import precision_recall_fscore_support
 import numpy as np
 
+import logging
+logger = logging.getLogger(__name__)
 
 def metrics(y_pred, y_true):
     """ Calucate evaluation metrics for precision, recall, and f1.

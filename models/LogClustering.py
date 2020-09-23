@@ -19,6 +19,8 @@ from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import pdist, squareform
 from ..utils import metrics
 
+import logging
+logger = logging.getLogger(__name__)
 
 class LogClustering(object):
 
@@ -43,7 +45,7 @@ class LogClustering(object):
         self.cluster_size_dict = dict()
 
     def fit(self, X):   
-        print('====== Model summary ======')         
+        logger.info('====== Model summary ======')         
         if self.mode == 'offline':
             # The offline mode can process about 10K samples only due to huge memory consumption.
             self._offline_clustering(X)
@@ -65,22 +67,22 @@ class LogClustering(object):
         return y_pred
 
     def evaluate(self, X, y_true):
-        print('====== Evaluation summary ======')
+        logger.info('====== Evaluation summary ======')
         y_pred = self.predict(X)
         precision, recall, f1 = metrics(y_pred, y_true)
-        print('Precision: {:.3f}, recall: {:.3f}, F1-measure: {:.3f}\n' \
+        logger.info('Precision: {:.3f}, recall: {:.3f}, F1-measure: {:.3f}\n' \
               .format(precision, recall, f1))
         return precision, recall, f1
 
     def _offline_clustering(self, X):
-        print('Starting offline clustering...')
+        logger.info('Starting offline clustering...')
         p_dist = pdist(X, metric=self._distance_metric)
         Z = linkage(p_dist, 'complete')
         cluster_index = fcluster(Z, self.max_dist, criterion='distance')
         self._extract_representatives(X, cluster_index)
-        print('Processed {} instances.'.format(X.shape[0]))
-        print('Found {} clusters offline.\n'.format(len(self.representatives)))
-        # print('The representive vectors are:')
+        logger.info('Processed {} instances.'.format(X.shape[0]))
+        logger.info('Found {} clusters offline.\n'.format(len(self.representatives)))
+        # logger.info('The representive vectors are:')
         # pprint.pprint(self.representatives.tolist())
 
     def _extract_representatives(self, X, cluster_index):
@@ -92,10 +94,10 @@ class LogClustering(object):
             self.representatives.append(repre_center)
 
     def _online_clustering(self, X):
-        print("Starting online clustering...")
+        logger.info("Starting online clustering...")
         for i in range(self.num_bootstrap_samples, X.shape[0]):
             if (i + 1) % 2000 == 0:
-                print('Processed {} instances.'.format(i + 1))
+                logger.info('Processed {} instances.'.format(i + 1))
             instance_vec = X[i, :]
             if len(self.representatives) > 0:
                 min_dist, clu_id = self._get_min_cluster_dist(instance_vec)
@@ -107,9 +109,9 @@ class LogClustering(object):
                     continue
             self.cluster_size_dict[len(self.representatives)] = 1
             self.representatives.append(instance_vec)
-        print('Processed {} instances.'.format(X.shape[0]))
-        print('Found {} clusters online.\n'.format(len(self.representatives)))
-        # print('The representive vectors are:')
+        logger.info('Processed {} instances.'.format(X.shape[0]))
+        logger.info('Found {} clusters online.\n'.format(len(self.representatives)))
+        # logger.info('The representive vectors are:')
         # pprint.pprint(self.representatives.tolist())
 
     def _distance_metric(self, x1, x2):

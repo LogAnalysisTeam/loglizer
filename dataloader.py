@@ -1,20 +1,20 @@
 """
-The interface to load log datasets. The datasets currently supported include
-HDFS and BGL.
-
-Authors:
-    LogPAI Team
-
+The interface to load log datasets. The datasets currently supported: HDFS, BGL. 
+This file is based on loglizer's dataloader.py.
 """
 
-import pandas as pd
 import os
+import pandas as pd
+from os.path import join as pjoin
 import numpy as np
 import re
 from datetime import datetime
 from statistics import mean, median
 from sklearn.utils import shuffle
 from collections import OrderedDict
+
+import logging
+logger = logging.getLogger(__name__)
 
 def _split_data(x_data, y_data=None, id_data=None, train_ratio=0, split_type='uniform'):
     if split_type == 'uniform' and y_data is not None:
@@ -55,7 +55,7 @@ def _split_data(x_data, y_data=None, id_data=None, train_ratio=0, split_type='un
     return (x_train, y_train), (x_test, y_test)
 
 
-def load_HDFS(log_file, label_file=None, window='session', train_ratio=0.5, split_type='sequential', save_csv=False, window_size=0):
+def load_HDFS(log_file, label_file=None, window='session', train_ratio=0.5, split_type='sequential', save_csv=False, window_size=0, save_path='./'):
     """ Load HDFS structured log into train and test data
 
     Arguments
@@ -75,7 +75,9 @@ def load_HDFS(log_file, label_file=None, window='session', train_ratio=0.5, spli
         (x_test, y_test): the testing data
     """
 
-    print('====== Input data summary ======')
+    logger.info('====== Input data summary ======')
+    logger.info('log_file: {}'.format(log_file))
+    logger.info('label_file: {}'.format(label_file))
 
     if log_file.endswith('.npz'):
         # Split training and validation set in a class-uniform way
@@ -86,7 +88,7 @@ def load_HDFS(log_file, label_file=None, window='session', train_ratio=0.5, spli
 
     elif log_file.endswith('.csv'):
         assert window == 'session', "Only window=session is supported for HDFS dataset."
-        print("Loading", log_file)
+        logger.info("Loading {}".format(log_file))
         struct_log = pd.read_csv(log_file, engine='c',
                 na_filter=False, memory_map=True)
         data_dict = OrderedDict()
@@ -117,9 +119,9 @@ def load_HDFS(log_file, label_file=None, window='session', train_ratio=0.5, spli
             (x_train, y_train), (x_test, y_test), (blk_train, blk_test) = _split_data(data_df['EventSequence'].values, 
                 data_df['Label'].values, data_df['BlockId'], train_ratio, split_type)
 
-            save_for_fulltext_detection(block_dict, blk_train, blk_test)
+            save_for_fulltext_detection(block_dict, blk_train, blk_test, save_path)
 
-            print(y_train.sum(), y_test.sum())
+            logger.info("y_train sum: {}, y_test sum: {}".format(y_train.sum(), y_test.sum()))
 
         if save_csv:
             data_df.to_csv('data_instances.csv', index=False)
@@ -128,19 +130,19 @@ def load_HDFS(log_file, label_file=None, window='session', train_ratio=0.5, spli
             x_train, window_y_train, y_train = slice_hdfs(x_train, y_train, window_size)
             x_test, window_y_test, y_test = slice_hdfs(x_test, y_test, window_size)
             log = "{} {} windows ({}/{} anomaly), {}/{} normal"
-            print(log.format("Train:", x_train.shape[0], y_train.sum(), y_train.shape[0], (1-y_train).sum(), y_train.shape[0]))
-            print(log.format("Test:", x_test.shape[0], y_test.sum(), y_test.shape[0], (1-y_test).sum(), y_test.shape[0]))
+            logger.info(log.format("Train:", x_train.shape[0], y_train.sum(), y_train.shape[0], (1-y_train).sum(), y_train.shape[0]))
+            logger.info(log.format("Test:", x_test.shape[0], y_test.sum(), y_test.shape[0], (1-y_test).sum(), y_test.shape[0]))
             return (x_train, window_y_train, y_train), (x_test, window_y_test, y_test)
 
         if label_file is None:
             if split_type == 'uniform':
                 split_type = 'sequential'
-                print('Warning: Only split_type=sequential is supported \
+                logger.info('Warning: Only split_type=sequential is supported \
                 if label_file=None.'.format(split_type))
             # Split training and validation set sequentially
             x_data = data_df['EventSequence'].values
             (x_train, _), (x_test, _) = _split_data(x_data, train_ratio=train_ratio, split_type=split_type)
-            print('Total: {} instances, train: {} instances, test: {} instances'.format(
+            logger.info('Total: {} instances, train: {} instances, test: {} instances'.format(
                   x_data.shape[0], x_train.shape[0], x_test.shape[0]))
             return (x_train, None), (x_test, None), data_df
     else:
@@ -153,11 +155,11 @@ def load_HDFS(log_file, label_file=None, window='session', train_ratio=0.5, spli
     num_test_pos = sum(y_test)
     num_pos = num_train_pos + num_test_pos
 
-    print('Total: {} instances, {} anomaly, {} normal' \
+    logger.info('Total: {} instances, {} anomaly, {} normal' \
           .format(num_total, num_pos, num_total - num_pos))
-    print('Train: {} instances, {} anomaly, {} normal' \
+    logger.info('Train: {} instances, {} anomaly, {} normal' \
           .format(num_train, num_train_pos, num_train - num_train_pos))
-    print('Test: {} instances, {} anomaly, {} normal\n' \
+    logger.info('Test: {} instances, {} anomaly, {} normal\n' \
           .format(num_test, num_test_pos, num_test - num_test_pos))
 
     return (x_train, y_train), (x_test, y_test)
@@ -165,7 +167,7 @@ def load_HDFS(log_file, label_file=None, window='session', train_ratio=0.5, spli
 
 def slice_hdfs(x, y, window_size):
     results_data = []
-    print("Slicing {} sessions, with window {}".format(x.shape[0], window_size))
+    logger.info("Slicing {} sessions, with window {}".format(x.shape[0], window_size))
     for idx, sequence in enumerate(x):
         seqlen = len(sequence)
         i = 0
@@ -178,25 +180,27 @@ def slice_hdfs(x, y, window_size):
             slice += ["#Pad"] * (window_size - len(slice))
             results_data.append([idx, slice, "#Pad", y[idx]])
     results_df = pd.DataFrame(results_data, columns=["SessionId", "EventSequence", "Label", "SessionLabel"])
-    print("Slicing done, {} windows generated".format(results_df.shape[0]))
+    logger.info("Slicing done, {} windows generated".format(results_df.shape[0]))
     return results_df[["SessionId", "EventSequence"]], results_df["Label"], results_df["SessionLabel"]
 
 
-def save_for_fulltext_detection(block_dict, blk_train, blk_test):
-    print('Saving datasets for full text detection')
+def save_for_fulltext_detection(block_dict, blk_train, blk_test, save_path):
+    logger.info('Saving datasets for full text detection')
     import torch
     validation_idx = int(len(blk_train)*0.8)
     np.random.shuffle(blk_train)
+    baf = pjoin(save_path, 'benchmark_anomal.pt')
+    bf = pjoin(save_path, 'benchmark.pt')
     torch.save({
         'train': [block_dict[blk] for blk in blk_train[0:validation_idx]],
         'validation': [block_dict[blk] for blk in blk_train[validation_idx:]],
         'test': [block_dict[blk] for blk in blk_test]
-    }, 'benchmark_anomal.data')
+    }, baf)
     torch.save({
         'train': [block_dict[blk] for blk in blk_train[0:validation_idx] if not block_dict[blk]['label']],
         'validation': [block_dict[blk] for blk in blk_train[validation_idx:] if not block_dict[blk]['label']],
         'test': [block_dict[blk] for blk in blk_test]
-    }, 'benchmark.data')
+    }, bf)
 
 
 def load_BGL(log_file, save_path='./', window='sliding', time_interval=60, stepping_size=60, 
@@ -204,21 +208,39 @@ def load_BGL(log_file, save_path='./', window='sliding', time_interval=60, stepp
     """  TODO
 
     """
+    prefile = pjoin(save_path, "train_test_preprocessed.npz")
+    if os.path.isfile(prefile):
+        logger.info("preprocessed file found, loading {}".format(prefile))
+        f = np.load(prefile, allow_pickle=True)
+        return (f['x_train'], f['y_train']), (f['x_test'], f['y_test'])
+    
+    logger.info("loading BGL log file: {}".format(log_file))
     struct_log = pd.read_csv(log_file, engine='c', na_filter=False, memory_map=True)
     struct_log['Label'] = struct_log['Label'].apply(lambda x: 0 if x == '-' else 1)
     label_time_pairs = np.array(list(zip(struct_log['Label'],struct_log['Timestamp'])))
     
-    print('anomalies:',sum(struct_log["Label"]))
+    logger.info('anomalies: {}'.format(sum(struct_log["Label"])))
     params = {
         'save_path': save_path,
         'window_size': time_interval,
         'step_size': stepping_size
     }
+
+    logger.info("save path for preprocessed files: {}".format(save_path))
+    logger.info("preprocessing...")
     event_count_matrix, labels = bgl_preprocess_data(params, label_time_pairs, struct_log)
 
+    logger.info("splitting...")
     (x_train, y_train), (x_test, y_test), (id_train, id_test) = _split_data(event_count_matrix, labels, np.arange(labels.shape[0]), train_ratio)
+    # x_train is ndarray of Python lists of event ids 
+    logger.info("x_train: {}".format(x_train.shape))
+    logger.info("y_train: {}".format(y_train.shape))
+    logger.info("x_test: {}".format(x_test.shape))
+    logger.info("y_test: {}".format(y_test.shape))
+    logger.info("saving to: {}".format(prefile))
+    np.savez_compressed(prefile, x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test)
 
-    print('Transforming data for full text prediction')
+    logger.info('Transforming data for full text prediction')
     block_dict = {}
     with open(params['sliding_cache_file']) as f:
         for i, line in enumerate(f):
@@ -233,7 +255,7 @@ def load_BGL(log_file, save_path='./', window='sliding', time_interval=60, stepp
             block['label'] = anomal
             block_dict[i] = block
 
-    save_for_fulltext_detection(block_dict, id_train, id_test)
+    save_for_fulltext_detection(block_dict, id_train, id_test, save_path)
 
     return (x_train, y_train), (x_test, y_test)
 
@@ -258,7 +280,7 @@ def bgl_preprocess_data(para, raw_data, event_mapping_data):
     if not os.path.exists(para['save_path']):
         os.mkdir(para['save_path'])
     log_size = raw_data.shape[0]
-    sliding_file_path = para['save_path']+'sliding_'+str(para['window_size'])+'h_'+str(para['step_size'])+'h.csv'
+    sliding_file_path = pjoin(para['save_path'], 'sliding_{}_h{}h.csv'.format(para['window_size'], para['step_size']))
     para['sliding_cache_file'] = sliding_file_path
 
     #=============divide into sliding windows=========#
@@ -299,13 +321,13 @@ def bgl_preprocess_data(para, raw_data, event_mapping_data):
                 start_end_pair = tuple((start_index, end_index))
                 start_end_index_list.append(start_end_pair)
         inst_number = len(start_end_index_list)
-        print('there are %d instances (sliding windows) in this dataset\n'%inst_number)
+        logger.info('there are %d instances (sliding windows) in this dataset\n' % inst_number)
         np.savetxt(sliding_file_path,start_end_index_list,delimiter=',',fmt='%d')
     else:
-        print('Loading start_end_index_list from file')
+        logger.info('Loading start_end_index_list from file')
         start_end_index_list = pd.read_csv(sliding_file_path, header=None).values
         inst_number = len(start_end_index_list)
-        print('there are %d instances (sliding windows) in this dataset' % inst_number)
+        logger.info('there are %d instances (sliding windows) in this dataset' % inst_number)
 
     # get all the log indexes in each time window by ranging from start_index to end_index
     expanded_indexes_list=[]
@@ -320,7 +342,7 @@ def bgl_preprocess_data(para, raw_data, event_mapping_data):
 
     event_mapping_data = event_mapping_data['EventId']
     event_num = len(list(set(event_mapping_data)))
-    print('There are %d log events'%event_num)
+    logger.info('There are %d log events' % event_num)
 
     #=============get labels and event count of each sliding window =========#
     labels = []
@@ -336,9 +358,9 @@ def bgl_preprocess_data(para, raw_data, event_mapping_data):
         labels.append(label)
         sequences.append(sequence)
     assert inst_number == len(labels)
-    print("Among %d instances, %d are anomalies"%(len(sequences),sum(labels)))
+    logger.info("Among %d instances, %d are anomalies"%(len(sequences),sum(labels)))
     lenghts = list(map(len,sequences))
-    print("Instances len mean=%d median=%d"%(mean(lenghts),median(lenghts)))
+    logger.info("Instances len mean=%d median=%d"%(mean(lenghts),median(lenghts)))
     return np.array(sequences), np.array(labels)
 
 

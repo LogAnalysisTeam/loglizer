@@ -16,6 +16,9 @@ from scipy.special import expit
 from itertools import compress
 from torch.utils.data import DataLoader, Dataset
 
+import logging
+logger = logging.getLogger(__name__)
+
 class Iterator(Dataset):
     def __init__(self, data_dict, batch_size=32, shuffle=False, num_workers=1):
         self.data_dict = data_dict
@@ -70,7 +73,7 @@ class FeatureExtractor(object):
         -------
             X_new: The transformed data matrix
         """
-        print('====== Transformed train data summary ======')
+        logger.info('====== Transformed train data summary ======')
         self.term_weighting = term_weighting
         self.normalization = normalization
         self.oov = oov
@@ -106,7 +109,7 @@ class FeatureExtractor(object):
             X[X != 0] = expit(X[X != 0])
         X_new = X
         
-        print('Train data shape: {}-by-{}\n'.format(X_new.shape[0], X_new.shape[1])) 
+        logger.info('Train data shape: {}-by-{}\n'.format(X_new.shape[0], X_new.shape[1])) 
         return X_new
 
     def transform(self, X_seq):
@@ -121,7 +124,7 @@ class FeatureExtractor(object):
         -------
             X_new: The transformed data matrix
         """
-        print('====== Transformed test data summary ======')
+        logger.info('====== Transformed test data summary ======')
         X_counts = []
         for i in range(X_seq.shape[0]):
             event_counts = Counter(X_seq[i])
@@ -146,6 +149,6 @@ class FeatureExtractor(object):
             X[X != 0] = expit(X[X != 0])
         X_new = X
 
-        print('Test data shape: {}-by-{}\n'.format(X_new.shape[0], X_new.shape[1])) 
+        logger.info('Test data shape: {}-by-{}\n'.format(X_new.shape[0], X_new.shape[1])) 
 
         return X_new

@@ -14,6 +14,9 @@ Reference:
 import numpy as np
 from ..utils import metrics
 
+import logging
+logger = logging.getLogger(__name__)
+
 class PCA(object):
 
     def __init__(self, n_components=0.95, threshold=None, c_alpha=3.2905):
@@ -52,7 +55,7 @@ class PCA(object):
             X: ndarray, the event count matrix of shape num_instances-by-num_events
         """
 
-        print('====== Model summary ======')
+        logger.info('====== Model summary ======')
         num_instances, num_events = X.shape
         X_cov = np.dot(X.T, X) / float(num_instances)
         U, sigma, V = np.linalg.svd(X_cov)
@@ -70,8 +73,8 @@ class PCA(object):
         I = np.identity(num_events, int)
         self.components = P
         self.proj_C = I - np.dot(P, P.T)
-        print('n_components: {}'.format(n_components))
-        print('Project matrix shape: {}-by-{}'.format(self.proj_C.shape[0], self.proj_C.shape[1]))
+        logger.info('n_components: {}'.format(n_components))
+        logger.info('Project matrix shape: {}-by-{}'.format(self.proj_C.shape[0], self.proj_C.shape[1]))
 
         if not self.threshold:
             # Calculate threshold using Q-statistic. Information can be found at:
@@ -97,9 +100,9 @@ class PCA(object):
         return y_pred
 
     def evaluate(self, X, y_true):
-        print('====== Evaluation summary ======')
+        logger.info('====== Evaluation summary ======')
         y_pred = self.predict(X)
         precision, recall, f1 = metrics(y_pred, y_true)
-        print('Precision: {:.3f}, recall: {:.3f}, F1-measure: {:.3f}\n'.format(precision, recall, f1))
+        logger.info('Precision: {:.3f}, recall: {:.3f}, F1-measure: {:.3f}\n'.format(precision, recall, f1))
         return precision, recall, f1
 
