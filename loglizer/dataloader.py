@@ -124,7 +124,7 @@ def load_HDFS(log_file, label_file=None, window='session', train_ratio=0.5, spli
             logger.info("y_train sum: {}, y_test sum: {}".format(y_train.sum(), y_test.sum()))
 
         if save_csv:
-            data_df.to_csv('data_instances.csv', index=False)
+            data_df.to_csv(pjoin(save_path, 'data_instances.csv'), index=False)
 
         if window_size > 0:
             x_train, window_y_train, y_train = slice_hdfs(x_train, y_train, window_size)
