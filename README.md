@@ -1,6 +1,8 @@
 <p align="center"> <a href="https://github.com/logpai"> <img src="https://github.com/logpai/logpai.github.io/blob/master/img/logpai_logo.jpg" width="425"></a></p>
 
 # Changes by Log Analysis Team
+* Oct 5, 2020
+  * added our own implementation of DeepLog named DeepLogLAT
 * Sep 21, 2020
   * added support for BGL dataset (Marek Souček)
   * uses `logging` instead of `print()`
